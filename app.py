@@ -4,46 +4,52 @@ import numpy as np
 import tempfile
 from moviepy import VideoFileClip
 
-def apply_pro_football_cc(frame):
-    # 1. Renkleri Canlandır (Saturasyon & Parlaklık)
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV).astype("float32")
-    hsv[:, :, 1] *= 1.35  # Renk doygunluğu %35 artış (İdeal seviye)
-    hsv[:, :, 2] *= 1.05  # Hafif parlaklık
-    hsv = np.clip(hsv, 0, 255).astype("uint8")
-    frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-    # 2. Detayları Çıkar (Daha yumuşak bir CLAHE)
+def apply_ae_quality_cc(frame):
+    # 1. Profesyonel Kontrast (CLAHE) - Daha Hafif ve Doğal
+    # Beyaz haleleri engellemek için clipLimit'i düşürdük
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8,8)) # Limit 3.0'dan 1.8'e düştü (Çamurlaşmayı önler)
+    clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8,8)) # 1.8'den 1.6'ya düştü
     cl = clahe.apply(l)
     limg = cv2.merge((cl,a,b))
     frame = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
-    # 3. Profesyonel Kontrast (Gamma Correction)
-    # Bu adım videonun o "premium" koyu tonlarını sağlar
-    invGamma = 1.0 / 1.1
-    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-    frame = cv2.LUT(frame, table)
+    # 2. Tok Doygunluk ve Derin Siyahlar (Saturasyon & Gamma)
+    # Bu adım,ae cc'deki o zengin renk hissini verir
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV).astype("float32")
+    
+    # Saturasyonu (Doygunluğu) tok hale getirir
+    hsv[:, :, 1] *= 1.45  # Tok doygunluk
+    # Siyahları derinleştirir (AE'deki "Levels" veya "Curves" gibi)
+    hsv[:, :, 2] *= 0.92  # Derin siyahlar
+    
+    hsv = np.clip(hsv, 0, 255).astype("uint8")
+    frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+    # 3. Profesyonel Keskinleştirme (Unsharp Mask)
+    # Gürültüyü (noise) tetikleyen "hard sharpening" yerine
+    # daha kaliteli "Unsharp Mask" kullanıyoruz.
+    gaussian_blur = cv2.GaussianBlur(frame, (7,7), 1.5)
+    frame = cv2.addWeighted(frame, 1.8, gaussian_blur, -0.8, 0)
     
     return frame
 
-st.set_page_config(page_title="EAGLE22 CC Maker", page_icon="⚽")
-st.title("⚽ Premium Football CC")
+st.set_page_config(page_title="Pro-Edit CC Maker", page_icon="⚽")
+st.title("⚽ AE CC Stilinde Vibrant Dark")
 
-uploaded_file = st.file_uploader("Videonu Yükle", type=["mp4", "mov"])
+uploaded_file = st.file_uploader("Editlenecek Videoyu Seç", type=["mp4", "mov"])
 
 if uploaded_file is not None:
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_file.read())
     
-    if st.button("CC Bas ve Render Al"):
+    if st.button("AE CC Bas ve Renderle"):
         cap = cv2.VideoCapture(tfile.name)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         
-        output_path = "vibrant_edit.mp4"
+        output_path = "vibrant_dark_edit.mp4"
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
@@ -54,14 +60,14 @@ if uploaded_file is not None:
             ret, frame = cap.read()
             if not ret: break
             
-            # CC Uygula
-            processed = apply_pro_football_cc(frame)
+            # AE-Like CC Uygula
+            processed = apply_ae_quality_cc(frame)
             out.write(processed)
             bar.progress((i + 1) / frames)
 
         cap.release()
         out.release()
         
-        st.success("CC Hazır! Aşağıdan indir.")
+        st.success("AE CC Hazır! İndirebilirsin.")
         with open(output_path, "rb") as f:
-            st.download_button("⚡ Videoyu İndir", f, "eagle22_edit.mp4")
+            st.download_button("⚡ Videoyu İndir", f, "ae_cc_edit.mp4")
