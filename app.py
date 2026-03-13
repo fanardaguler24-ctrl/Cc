@@ -4,64 +4,64 @@ import numpy as np
 import tempfile
 from moviepy import VideoFileClip
 
+def apply_pro_football_cc(frame):
+    # 1. Renkleri Canlandır (Saturasyon & Parlaklık)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV).astype("float32")
+    hsv[:, :, 1] *= 1.35  # Renk doygunluğu %35 artış (İdeal seviye)
+    hsv[:, :, 2] *= 1.05  # Hafif parlaklık
+    hsv = np.clip(hsv, 0, 255).astype("uint8")
+    frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-def apply_quality_cc(frame):
-    # 1. Kontrastı ve Keskinliği Artır (CLAHE)
+    # 2. Detayları Çıkar (Daha yumuşak bir CLAHE)
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8,8)) # Limit 3.0'dan 1.8'e düştü (Çamurlaşmayı önler)
     cl = clahe.apply(l)
     limg = cv2.merge((cl,a,b))
     frame = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
-    # 2. Renk Doygunluğunu (Saturation) Yükselt
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV).astype("float32")
-    hsv[:, :, 1] = hsv[:, :, 1] * 1.4  # Doygunluğu %40 artırır
-    hsv[:, :, 2] = hsv[:, :, 2] * 1.1  # Parlaklığı %10 artırır
-    hsv = np.clip(hsv, 0, 255).astype("uint8")
-    frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-    # 3. Hafif Keskinleştirme (Sharpening)
-    kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-    frame = cv2.filter2D(frame, -1, kernel)
+    # 3. Profesyonel Kontrast (Gamma Correction)
+    # Bu adım videonun o "premium" koyu tonlarını sağlar
+    invGamma = 1.0 / 1.1
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+    frame = cv2.LUT(frame, table)
     
     return frame
 
-st.title("⚽ Football Edit CC Maker")
-uploaded_file = st.file_uploader("Editlenecek videoyu seç...", type=["mp4", "mov", "avi"])
+st.set_page_config(page_title="EAGLE22 CC Maker", page_icon="⚽")
+st.title("⚽ Premium Football CC")
+
+uploaded_file = st.file_uploader("Videonu Yükle", type=["mp4", "mov"])
 
 if uploaded_file is not None:
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_file.read())
     
-    if st.button("CC Uygula ve Renderla"):
+    if st.button("CC Bas ve Render Al"):
         cap = cv2.VideoCapture(tfile.name)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
         
-        output_path = "cc_video.mp4"
+        output_path = "vibrant_edit.mp4"
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-        progress_bar = st.progress(0)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        bar = st.progress(0)
+        frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        count = 0
-        while cap.isOpened():
+        for i in range(frames):
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
             
-            processed_frame = apply_quality_cc(frame)
-            out.write(processed_frame)
-            
-            count += 1
-            progress_bar.progress(count / frame_count)
+            # CC Uygula
+            processed = apply_pro_football_cc(frame)
+            out.write(processed)
+            bar.progress((i + 1) / frames)
 
         cap.release()
         out.release()
         
-        st.success("İşlem tamamlandı!")
-        with open(output_path, "rb") as file:
-            st.download_button("Videoyu İndir", file, "kaliteli_edit.mp4")
+        st.success("CC Hazır! Aşağıdan indir.")
+        with open(output_path, "rb") as f:
+            st.download_button("⚡ Videoyu İndir", f, "eagle22_edit.mp4")
