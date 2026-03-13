@@ -4,7 +4,7 @@ import numpy as np
 import tempfile
 from moviepy import VideoFileClip
 
-def apply_ae_quality_cc(frame):
+def apply_ae_like_cc(frame):
     # 1. Profesyonel Kontrast (CLAHE) - Daha Hafif ve Doğal
     # Beyaz haleleri engellemek için clipLimit'i düşürdük
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
@@ -14,7 +14,7 @@ def apply_ae_quality_cc(frame):
     limg = cv2.merge((cl,a,b))
     frame = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
-    # 2. Tok Doygunluk ve Derin Siyahlar (Saturasyon & Gamma)
+    # 2. Tok Doygunluk ve Derin Siyahlar (Saturasyon & Gamma Correction)
     # Bu adım,ae cc'deki o zengin renk hissini verir
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV).astype("float32")
     
@@ -61,7 +61,7 @@ if uploaded_file is not None:
             if not ret: break
             
             # AE-Like CC Uygula
-            processed = apply_ae_quality_cc(frame)
+            processed = apply_ae_like_cc(frame)
             out.write(processed)
             bar.progress((i + 1) / frames)
 
