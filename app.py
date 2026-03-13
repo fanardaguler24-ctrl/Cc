@@ -2,7 +2,8 @@ import streamlit as st
 import cv2
 import numpy as np
 import tempfile
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
+
 
 def apply_quality_cc(frame):
     # 1. Kontrastı ve Keskinliği Artır (CLAHE)
